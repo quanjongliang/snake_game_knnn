@@ -34,33 +34,32 @@ const SnakeGame = () => {
         setFood(newFood);
     }, []);
 
-    // Kiểm tra va chạm
-    const checkCollision = (head) => {
-        // Va chạm với tường
-        if (
-            head.x < 0 ||
-            head.x >= GRID_SIZE ||
-            head.y < 0 ||
-            head.y >= GRID_SIZE
-        ) {
-            return true;
-        }
-
-        // Va chạm với thân rắn
-        for (let segment of snake) {
-            if (head.x === segment.x && head.y === segment.y) {
-                return true;
-            }
-        }
-        return false;
-    };
-
     // Di chuyển rắn
     const moveSnake = useCallback(() => {
         if (isGameOver) return;
 
         const newSnake = [...snake];
         const head = { ...newSnake[0] };
+
+        const checkCollision = (head) => {
+            // Va chạm với tường
+            if (
+                head.x < 0 ||
+                head.x >= GRID_SIZE ||
+                head.y < 0 ||
+                head.y >= GRID_SIZE
+            ) {
+                return true;
+            }
+
+            // Va chạm với thân rắn
+            for (let segment of snake) {
+                if (head.x === segment.x && head.y === segment.y) {
+                    return true;
+                }
+            }
+            return false;
+        };
 
         switch (direction) {
             case 'UP':
@@ -86,7 +85,6 @@ const SnakeGame = () => {
 
         newSnake.unshift(head);
 
-        // Kiểm tra ăn thức ăn
         if (head.x === food.x && head.y === food.y) {
             setScore(score + 1);
             generateFood();
