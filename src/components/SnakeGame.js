@@ -24,6 +24,8 @@ const SnakeGame = () => {
     const [playerName, setPlayerName] = useState('');
     const [highestScore, setHighestScore] = useState(0);
     const [deviceInfo, setDeviceInfo] = useState(null);
+    const [messages, setMessages] = useState([]);
+    const [newMessage, setNewMessage] = useState('');
 
     // Tạo thức ăn mới
     const generateFood = useCallback(() => {
@@ -221,6 +223,46 @@ const SnakeGame = () => {
         }
     };
 
+    useEffect(() => {
+        const messagesRef = collection(db, 'messages');
+        // Sắp xếp theo timestamp tăng dần để tin nhắn cũ hiện trên đầu
+        const q = query(messagesRef, orderBy('timestamp', 'asc'), limit(50));
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const msgs = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            setMessages(msgs); // Không cần reverse() vì đã sắp xếp asc
+        }, (error) => {
+            console.error("Error fetching messages:", error);
+        });
+
+        // Cleanup listener khi component unmount
+        return () => unsubscribe();
+    }, []);
+
+    const sendMessage = async (e) => {
+        e.preventDefault();
+        if (!newMessage.trim() || !playerName.trim()) {
+            alert('Vui lòng nhập tên và nội dung tin nhắn!');
+            return;
+        }
+
+        try {
+            const messagesRef = collection(db, 'messages');
+            await addDoc(messagesRef, {
+                text: newMessage.trim(),
+                name: playerName.trim(),
+                timestamp: new Date(),
+            });
+            setNewMessage('');
+        } catch (error) {
+            console.error("Error sending message:", error);
+            alert('Không thể gửi tin nhắn: ' + error.message);
+        }
+    };
+
     return (
         <div className="game-wrapper">
             <div className="scores-panel">
@@ -281,6 +323,39 @@ const SnakeGame = () => {
                         <button onClick={resetGame}>Play Again</button>
                     </div>
                 )}
+            </div>
+
+            <div className="chat-container">
+                <div className="chat-messages"
+                    ref={(el) => {
+                        if (el) {
+                            el.scrollTop = el.scrollHeight;
+                        }
+                    }}>
+                    {messages.map((msg) => (
+                        <div key={msg.id} className="message">
+                            <span className="message-name">{msg.name}:</span>
+                            <span className="message-text">{msg.text}</span>
+                        </div>
+                    ))}
+                </div>
+                <form onSubmit={sendMessage} className="chat-input">
+                    <input
+                        type="text"
+                        placeholder="Enter your name first..."
+                        value={playerName}
+                        onChange={(e) => setPlayerName(e.target.value)}
+                        className="name-input"
+                    />
+                    <input
+                        type="text"
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        placeholder="Type a message..."
+                        className="message-input"
+                    />
+                    <button type="submit">Send</button>
+                </form>
             </div>
         </div>
     );
