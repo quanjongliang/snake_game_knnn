@@ -3,6 +3,7 @@ import { db } from '../firebase';
 import { collection, addDoc, query, orderBy, limit, getDocs, onSnapshot, where, updateDoc, doc } from 'firebase/firestore';
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import './SnakeGame.css';
+import EmojiPicker from 'emoji-picker-react';
 
 const GRID_SIZE = 20;
 const CELL_SIZE = 20;
@@ -26,6 +27,7 @@ const SnakeGame = () => {
     const [deviceInfo, setDeviceInfo] = useState(null);
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
     // Tạo thức ăn mới
     const generateFood = useCallback(() => {
@@ -225,20 +227,19 @@ const SnakeGame = () => {
 
     useEffect(() => {
         const messagesRef = collection(db, 'messages');
-        // Sắp xếp theo timestamp tăng dần để tin nhắn cũ hiện trên đầu
-        const q = query(messagesRef, orderBy('timestamp', 'asc'), limit(50));
+        // Sắp xếp theo timestamp giảm dần (desc) để tin nhắn mới nhất lên đầu
+        const q = query(messagesRef, orderBy('timestamp', 'desc'), limit(50));
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const msgs = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
             }));
-            setMessages(msgs); // Không cần reverse() vì đã sắp xếp asc
+            setMessages(msgs); // Không cần reverse() vì đã sắp xếp desc
         }, (error) => {
             console.error("Error fetching messages:", error);
         });
 
-        // Cleanup listener khi component unmount
         return () => unsubscribe();
     }, []);
 
@@ -261,6 +262,21 @@ const SnakeGame = () => {
             console.error("Error sending message:", error);
             alert('Không thể gửi tin nhắn: ' + error.message);
         }
+    };
+
+    // Thêm hàm format thời gian
+    const formatTime = (timestamp) => {
+        if (!timestamp) return '';
+        const date = timestamp.toDate(); // Chuyển Firestore Timestamp thành Date
+        return date.toLocaleTimeString('vi-VN', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
+
+    const onEmojiClick = (emojiObject) => {
+        setNewMessage(prev => prev + emojiObject.emoji);
+        setShowEmojiPicker(false);
     };
 
     return (
@@ -326,35 +342,59 @@ const SnakeGame = () => {
             </div>
 
             <div className="chat-container">
+                <div className="chat-header">
+                    Game Chat
+                </div>
                 <div className="chat-messages"
                     ref={(el) => {
                         if (el) {
-                            el.scrollTop = el.scrollHeight;
+                            el.scrollTop = 0; // Scroll to top thay vì scrollHeight
                         }
                     }}>
                     {messages.map((msg) => (
                         <div key={msg.id} className="message">
-                            <span className="message-name">{msg.name}:</span>
-                            <span className="message-text">{msg.text}</span>
+                            <div className="message-header">
+                                <span className="message-name">{msg.name}</span>
+                                <span className="message-time">{formatTime(msg.timestamp)}</span>
+                            </div>
+                            <div className="message-content">
+                                <span className="message-text">{msg.text}</span>
+                            </div>
                         </div>
                     ))}
                 </div>
                 <form onSubmit={sendMessage} className="chat-input">
                     <input
                         type="text"
-                        placeholder="Enter your name first..."
+                        placeholder="Nhập tên của bạn..."
                         value={playerName}
                         onChange={(e) => setPlayerName(e.target.value)}
-                        className="name-input"
                     />
-                    <input
-                        type="text"
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        placeholder="Type a message..."
-                        className="message-input"
-                    />
-                    <button type="submit">Send</button>
+                    <div className="message-input-container">
+                        <input
+                            type="text"
+                            value={newMessage}
+                            onChange={(e) => setNewMessage(e.target.value)}
+                            placeholder="Nhập tin nhắn..."
+                        />
+                        <button
+                            type="button"
+                            className="emoji-button"
+                            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                        >
+                            😊
+                        </button>
+                        {showEmojiPicker && (
+                            <div className="emoji-picker-container">
+                                <EmojiPicker
+                                    onEmojiClick={onEmojiClick}
+                                    width={300}
+                                    height={400}
+                                />
+                            </div>
+                        )}
+                    </div>
+                    <button type="submit">Gửi</button>
                 </form>
             </div>
         </div>
